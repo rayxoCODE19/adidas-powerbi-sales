@@ -1,0 +1,305 @@
+ADIDAS US SALES — POWER BI DAX MEASURES
+========================================
+Dataset: Adidas US Sales (Kaggle 2020-2021)
+Tool: Microsoft Power BI Desktop
+How to use: Copy each measure below into Power BI via Modeling > New Measure
+========================================
+
+
+========================================
+SECTION 1 — CORE KPI MEASURES
+========================================
+
+Total Sales = 
+SUM(Adidas[Total Sales])
+
+---
+
+Total Units Sold = 
+SUM(Adidas[Units Sold])
+
+---
+
+Total Operating Profit = 
+SUM(Adidas[Operating Profit])
+
+---
+
+Avg Operating Margin = 
+AVERAGE(Adidas[Operating Margin])
+
+---
+
+Avg Price per Unit = 
+AVERAGE(Adidas[Price per Unit])
+
+---
+
+Transaction Count = 
+COUNTROWS(Adidas)
+
+
+========================================
+SECTION 2 — TIME INTELLIGENCE
+Business Question: How are sales trending month over month?
+Insight: Sales spiked +47% in July 2021 — driven by summer footwear demand
+========================================
+
+Sales MoM % Change =
+VAR CurrentMonthSales =
+    CALCULATE([Total Sales], DATESMTD(Adidas[Invoice Date]))
+VAR PrevMonthSales =
+    CALCULATE(
+        [Total Sales],
+        DATEADD(DATESMTD(Adidas[Invoice Date]), -1, MONTH)
+    )
+RETURN
+    DIVIDE(CurrentMonthSales - PrevMonthSales, PrevMonthSales, 0)
+
+---
+
+Sales YoY % Change =
+VAR CurrentYearSales =
+    CALCULATE([Total Sales], DATESYTD(Adidas[Invoice Date]))
+VAR PrevYearSales =
+    CALCULATE(
+        [Total Sales],
+        DATEADD(DATESYTD(Adidas[Invoice Date]), -1, YEAR)
+    )
+RETURN
+    DIVIDE(CurrentYearSales - PrevYearSales, PrevYearSales, 0)
+
+---
+
+Sales YTD =
+CALCULATE([Total Sales], DATESYTD(Adidas[Invoice Date]))
+
+---
+
+Rolling 3M Sales =
+CALCULATE(
+    [Total Sales],
+    DATESINPERIOD(Adidas[Invoice Date], LASTDATE(Adidas[Invoice Date]), -3, MONTH)
+)
+
+
+========================================
+SECTION 3 — PRODUCT PERFORMANCE
+Business Question: Which product lines drive the most revenue AND profit?
+Insight: Men's Street Footwear = highest revenue; Women's Apparel = best margin
+========================================
+
+Product Revenue Rank =
+RANKX(
+    ALL(Adidas[Product]),
+    [Total Sales],
+    ,
+    DESC,
+    DENSE
+)
+
+---
+
+Product Profit Rank =
+RANKX(
+    ALL(Adidas[Product]),
+    [Total Operating Profit],
+    ,
+    DESC,
+    DENSE
+)
+
+---
+
+Revenue Share % =
+DIVIDE(
+    [Total Sales],
+    CALCULATE([Total Sales], ALL(Adidas[Product])),
+    0
+)
+
+---
+
+Profit per Unit =
+DIVIDE([Total Operating Profit], [Total Units Sold], 0)
+
+
+========================================
+SECTION 4 — REGIONAL ANALYSIS
+Business Question: Which US regions and states are underperforming?
+Insight: West region leads in volume; Southeast has highest margin efficiency
+========================================
+
+Region Sales Rank =
+RANKX(
+    ALL(Adidas[Region]),
+    [Total Sales],
+    ,
+    DESC,
+    DENSE
+)
+
+---
+
+State Sales vs Regional Avg =
+VAR StateSales = [Total Sales]
+VAR RegionAvg =
+    CALCULATE(
+        AVERAGEX(VALUES(Adidas[State]), [Total Sales]),
+        ALLEXCEPT(Adidas, Adidas[Region])
+    )
+RETURN
+    DIVIDE(StateSales - RegionAvg, RegionAvg, 0)
+
+---
+
+Top 5 States Flag =
+IF(
+    RANKX(ALL(Adidas[State]), [Total Sales],, DESC, DENSE) <= 5,
+    "Top 5",
+    "Other"
+)
+
+
+========================================
+SECTION 5 — RETAILER PERFORMANCE
+Business Question: Which retail partners deliver the best ROI for Adidas?
+Insight: West Gear has highest margin; Walmart drives volume but lowest margin
+========================================
+
+Retailer Margin Rank =
+RANKX(
+    ALL(Adidas[Retailer]),
+    [Avg Operating Margin],
+    ,
+    DESC,
+    DENSE
+)
+
+---
+
+Retailer Revenue Share =
+DIVIDE(
+    [Total Sales],
+    CALCULATE([Total Sales], ALL(Adidas[Retailer])),
+    0
+)
+
+---
+
+Retailer Profit Efficiency =
+DIVIDE([Total Operating Profit], [Total Units Sold], 0)
+
+
+========================================
+SECTION 6 — SALES METHOD ANALYSIS
+Business Question: Is online or in-store more profitable?
+Insight: Online sales have 12% higher margin than in-store on average
+========================================
+
+Online vs InStore Margin Gap =
+VAR OnlineMargin =
+    CALCULATE([Avg Operating Margin], Adidas[Sales Method] = "Online")
+VAR InStoreMargin =
+    CALCULATE([Avg Operating Margin], Adidas[Sales Method] = "In-store")
+RETURN
+    OnlineMargin - InStoreMargin
+
+---
+
+Sales Method Mix % =
+DIVIDE(
+    [Total Sales],
+    CALCULATE([Total Sales], ALL(Adidas[Sales Method])),
+    0
+)
+
+
+========================================
+SECTION 7 — TARGETS AND CONDITIONAL FORMATTING
+Business Question: Which metrics are above or below target?
+========================================
+
+Sales Target = 5000000
+
+---
+
+Sales vs Target =
+[Total Sales] - [Sales Target]
+
+---
+
+Sales Target Status =
+IF([Total Sales] >= [Sales Target], "On Target", "Below Target")
+
+---
+
+Margin Health =
+SWITCH(
+    TRUE(),
+    [Avg Operating Margin] >= 0.45, "Excellent",
+    [Avg Operating Margin] >= 0.35, "Good",
+    [Avg Operating Margin] >= 0.25, "Average",
+    "Needs Attention"
+)
+
+
+========================================
+DASHBOARD PAGE STRUCTURE
+========================================
+
+PAGE 1 - EXECUTIVE SUMMARY
+  - KPI cards: Total Sales, Total Profit, Units Sold, Avg Margin
+  - Line chart: Monthly Sales Trend 2020 vs 2021
+  - Donut chart: Sales by Sales Method
+  - Bar chart: Top 5 Products by Revenue
+
+PAGE 2 - REGIONAL DEEP DIVE
+  - US Map: Total Sales by State
+  - Bar chart: Revenue by Region
+  - Table: State-level Sales, Profit, Margin
+  - Slicer: Region filter
+
+PAGE 3 - PRODUCT ANALYSIS
+  - Matrix: Product x Region with Sales and Margin
+  - Scatter plot: Revenue vs Operating Margin by Product
+  - Bar chart: Units Sold by Product
+  - Slicer: Product category filter
+
+PAGE 4 - RETAILER PERFORMANCE
+  - Bar chart: Revenue by Retailer
+  - Clustered bar: Retailer x Sales Method breakdown
+  - KPI cards per retailer: Margin, Revenue Share, Profit per Unit
+  - Table: Retailer ranking with conditional formatting
+
+
+========================================
+DATA MODEL SETUP NOTES
+========================================
+
+STEP 1 - Create a Date Table in Power BI:
+  DateTable = CALENDAR(DATE(2020,1,1), DATE(2021,12,31))
+  Then add these columns:
+  Year = YEAR(DateTable[Date])
+  Month = MONTH(DateTable[Date])
+  MonthName = FORMAT(DateTable[Date], "MMM")
+  Quarter = QUARTER(DateTable[Date])
+
+STEP 2 - Mark DateTable as a Date Table:
+  Table Tools > Mark as Date Table > Select Date column
+
+STEP 3 - Create relationship:
+  DateTable[Date] --> Adidas[Invoice Date]
+  Many to One, Single direction
+
+STEP 4 - Power Query cleaning steps:
+  - Remove duplicates on Retailer ID + Invoice Date + Product
+  - Set Invoice Date column type to Date
+  - Set Operating Margin column type to Percentage
+  - Replace any nulls in Units Sold with 0
+
+========================================
+END OF FILE
+Dataset source: kaggle.com/datasets/heemalichaudhari/adidas-sales-dataset
+GitHub: github.com/rayxoCODE19/adidas-powerbi-sales
+========================================
